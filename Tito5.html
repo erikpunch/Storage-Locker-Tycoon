@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tito Storage Locker Simulator</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Courier New", monospace;
+    background: #1a1410; color: #e8d5b7;
+    display: flex; justify-content: center; padding: 20px;
+  }
+  #game { max-width: 900px; width: 100%; }
+  h1 { color: #f4a300; text-align: center; letter-spacing: 2px; }
+  .subtitle { text-align: center; color: #8a7a5c; margin-bottom: 16px; }
+  #hud {
+    display: flex; justify-content: space-between; flex-wrap: wrap;
+    background: #2a2118; border: 2px solid #5a4a30;
+    padding: 10px 16px; margin-bottom: 12px; border-radius: 6px;
+  }
+  .stat { font-weight: bold; }
+  .stat span { color: #f4a300; }
+  #main {
+    background: #241c12; border: 2px solid #5a4a30;
+    border-radius: 6px; padding: 16px; min-height: 340px;
+  }
+  #log {
+    background: #14100a; border: 1px solid #3a3020;
+    padding: 10px; margin-top: 12px; height: 140px;
+    overflow-y: auto; font-size: 13px; border-radius: 6px;
+  }
+  #log p { margin: 2px 0; }
+  .good { color: #7fd67f; } .bad { color: #e06c5c; }
+  .info { color: #9ab8d8; } .gold { color: #f4a300; }
+  button {
+    background: #f4a300; color: #1a1410; border: none;
+    padding: 8px 16px; margin: 4px; font-family: inherit;
+    font-weight: bold; cursor: pointer; border-radius: 4px;
+    font-size: 14px;
+  }
+  button:hover { background: #ffc040; }
+  button:disabled { background: #5a4a30; color: #8a7a5c; cursor: not-allowed; }
+  button.alt { background: #4a6a8a; color: #fff; }
+  button.alt:hover { background: #6a8aaa; }
+  .locker-visual {
+    background: #14100a; border: 2px dashed #5a4a30;
+    padding: 14px; margin: 10px 0; border-radius: 6px;
+  }
+  .item-row {
+    display: flex; justify-content: space-between;
+    padding: 6px 8px; border-bottom: 1px solid #3a3020;
+  }
+  .rarity-junk { color: #8a7a5c; } .rarity-common { color: #e8d5b7; }
+  .rarity-good { color: #7fd67f; } .rarity-rare { color: #9ab8d8; }
+  .rarity-legendary { color: #f4a300; }
+  h2 { color: #f4a300; margin-bottom: 8px; font-size: 18px; }
+  .bidders { font-size: 13px; color: #8a7a5c; margin: 8px 0; }
+  .pixel-icon {
+    width: 30px; height: 30px;
+    image-rendering: pixelated;
+    vertical-align: middle;
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+  .emoji-icon {
+    font-size: 22px; width: 30px; height: 30px;
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-right: 8px; flex-shrink: 0;
+  }
+  .item-row span:first-child { display: flex; align-items: center; }
+  #start-screen {
+    position: fixed; inset: 0;
+    background: #1a1410;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    cursor: pointer; z-index: 100;
+    text-align: center; padding: 20px;
+  }
+  #start-screen .big-lock { font-size: 72px; margin-bottom: 16px; }
+  #start-screen h1 { font-size: 32px; margin-bottom: 8px; }
+  #start-screen .tagline { color: #8a7a5c; margin-bottom: 40px; }
+  #start-screen .tap-prompt {
+    color: #f4a300; font-size: 22px; font-weight: bold;
+    letter-spacing: 3px;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.4; transform: scale(0.96); }
+  }
+  #start-screen .rules {
+    margin-top: 40px; color: #9ab8d8; font-size: 13px;
+    max-width: 420px; line-height: 1.6;
+  }
+  #mute-btn {
+    position: fixed; top: 10px; right: 10px; z-index: 50;
+    background: #2a2118; color: #f4a300; border: 1px solid #5a4a30;
+  }
+</style>
+</head>
+<body>
+
+<div id="start-screen">
+  <div class="big-lock">🔒</div>
+  <h1>TITO STORAGE LOCKER SIMULATOR</h1>
+  <p class="tagline">"One man's abandoned junk is Tito's empire."</p>
+  <p class="tap-prompt">▶ TAP TO START ◀</p>
+  <p class="rules">
+    Start with 500 USD. Win locker auctions, sell the loot,
+    pay 50 USD rent each night. Reach 25,000 USD to retire
+    as the Storage Locker King. Go broke and it's game over.
+    Watch out — some units have... residents.
+  </p>
+</div>
+
+<button id="mute-btn" onclick="toggleMute()">🔊</button>
+
+<div id="game">
+  <h1>🔒 TITO STORAGE LOCKER SIMULATOR 🔒</h1>
+  <p class="subtitle">"One man's abandoned junk is Tito's empire."</p>
+  <div id="hud">
+    <div class="stat">💵 Cash: <span id="cash">—</span></div>
+    <div class="stat">📅 Day: <span id="day">—</span></div>
+    <div class="stat">⭐ Rep: <span id="rep">—</span></div>
+    <div class="stat">🔍 Appraisal Lv: <span id="skill">—</span></div>
+    <div class="stat">🚚 Truck: <span id="truck">—</span></div>
+    <div class="stat">👷 Crew: <span id="crew">—</span></div>
+  </div>
+  <div id="main"></div>
+  <div id="log"></div>
+</div>
+
+<script>
+// ---------------- SOUND ENGINE ----------------
+let audioCtx = null;
+let muted = false;
+
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === "suspended") audioCtx.resume();
+}
+
+function toggleMute() {
+  muted = !muted;
+  document.getElementById("mute-btn").textContent = muted ? "🔇" : "🔊";
+}
+
+// Play a single tone. type: sine/square/sawtooth/triangle
+function tone(freq, start, dur, type = "square", vol = 0.15, slideTo = null) {
+  if (muted || !audioCtx) return;
+  const t = audioCtx.currentTime + start;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t);
+  if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  gain.gain.setValueAtTime(vol, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(t); osc.stop(t + dur + 0.05);
+}
+
+function noise(start, dur, vol = 0.1) {
+  if (muted || !audioCtx) return;
+  const t = audioCtx.currentTime + start;
+  const size = audioCtx.sampleRate * dur;
+  const buf = audioCtx.createBuffer(1, size, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(vol, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  src.connect(gain); gain.connect(audioCtx.destination);
+  src.start(t);
+}
+
+const SFX = {
+  start()   { tone(262,0,.1); tone(330,.1,.1); tone(392,.2,.1); tone(523,.3,.25,"square",.2); },
+  click()   { tone(600,0,.05,"square",.08); },
+  bid()     { tone(440,0,.06); tone(660,.07,.08); },
+  rival()   { tone(330,0,.08,"sawtooth",.1); tone(247,.09,.1,"sawtooth",.1); },
+  gavel()   { noise(0,.08,.2); tone(880,.02,.15,"triangle",.2); tone(1320,.1,.2,"triangle",.15); },
+  sell()    { tone(1047,0,.08,"triangle",.18); tone(1319,.08,.12,"triangle",.18); },
+  bigSell() { tone(784,0,.08); tone(988,.08,.08); tone(1175,.16,.08); tone(1568,.24,.3,"triangle",.2); },
+  peek()    { tone(200,0,.15,"sine",.12,500); },
+  upgrade() { tone(523,0,.08); tone(659,.08,.08); tone(784,.16,.15); },
+  night()   { tone(392,0,.2,"sine",.1); tone(330,.2,.25,"sine",.1); tone(262,.45,.35,"sine",.1); },
+  bad()     { tone(220,0,.15,"sawtooth",.12); tone(165,.15,.25,"sawtooth",.12); },
+  squatter(){ tone(150,0,.3,"sawtooth",.18,80); noise(.05,.15,.12); tone(600,.3,.1,"square",.1); },
+  run()     { tone(400,0,.06); tone(400,.08,.06); tone(400,.16,.06); tone(300,.24,.2,"square",.1,150); },
+  punch()   { noise(0,.06,.25); tone(120,0,.12,"square",.2,60); },
+  fightWin(){ noise(0,.06,.2); tone(120,0,.1,"square",.2,60); tone(523,.2,.08); tone(659,.28,.08); tone(784,.36,.2); },
+  fightLose(){ noise(0,.06,.2); tone(120,0,.1,"square",.2,60); tone(311,.2,.15,"sawtooth",.12); tone(233,.35,.3,"sawtooth",.12); },
+  bribe()   { tone(1047,0,.06,"triangle",.15); tone(1047,.08,.06,"triangle",.15); },
+  recruit() { tone(523,0,.1); tone(659,.1,.1); tone(784,.2,.1); tone(1047,.3,.3,"triangle",.2); },
+  event()   { tone(880,0,.08,"triangle",.12); tone(1108,.09,.12,"triangle",.12); },
+  gameOver(){ tone(392,0,.25,"sawtooth",.15); tone(370,.25,.25,"sawtooth",.15); tone(349,.5,.25,"sawtooth",.15); tone(330,.75,.6,"sawtooth",.15); },
+  victory() { [523,659,784,1047,784,1047,1319,1568].forEach((f,i)=>tone(f,i*.12,.15,"triangle",.18)); }
+};
+
+// ---------------- STATE ----------------
+let state = {};
+
+function freshState() {
+  return {
+    cash: 500, day: 1, rep: 0, skill: 1, truckCap: 6,
+    inventory: [], auctionsToday: 0, phase: "morning",
+    goal: 25000, crew: 0
+  };
+}
+
+// ---------------- ITEM POOL ----------------
+// [name, minVal, maxVal, rarity, weight, emoji?]
+const ITEMS = [
+  ["Moldy Cardboard Boxes", 1, 5, "junk", 30],
+  ["Broken Exercise Bike", 5, 15, "junk", 25],
+  ["Bag of Old Clothes", 3, 12, "junk", 28],
+  ["Rusty Toolbox", 10, 40, "common", 20],
+  ["Used Furniture Set", 20, 80, "common", 18],
+  ["Box of DVDs", 15, 50, "common", 20],
+  ["Kids' Bicycle", 20, 60, "common", 16],
+  ["Power Tools (working!)", 60, 180, "good", 10],
+  ["Vintage Vinyl Records", 50, 220, "good", 9],
+  ["Flat-Screen TV", 80, 250, "good", 8],
+  ["Antique Dresser", 100, 350, "good", 7],
+  ["Signed Baseball Memorabilia", 200, 800, "rare", 4],
+  ["Classic Guitar", 250, 900, "rare", 3.5],
+  ["Coin Collection", 300, 1200, "rare", 3],
+  ["Designer Handbag Stash", 250, 1000, "rare", 3],
+  ["Vintage Motorcycle (needs work)", 800, 3000, "legendary", 1],
+  ["Safe Full of Jewelry", 1000, 4000, "legendary", 0.7],
+  ["Original Painting (is it real?)", 500, 5000, "legendary", 0.5],
+  // ---- 20 junk ----
+  ["Single Flip-Flop", 1, 3, "junk", 26, "🩴"],
+  ["Tangled VHS Tapes", 1, 6, "junk", 26, "📼"],
+  ["Expired Canned Goods", 1, 5, "junk", 25, "🥫"],
+  ["Mystery Sock Bag", 1, 4, "junk", 26, "🧦"],
+  ["Stack of Old Newspapers", 1, 5, "junk", 25, "📰"],
+  ["Cracked Plastic Bucket", 1, 4, "junk", 25, "🪣"],
+  ["Box of Dried-Out Pens", 1, 3, "junk", 25, "🖊️"],
+  ["Deflated Party Supplies", 1, 5, "junk", 24, "🎈"],
+  ["One-Eyed Teddy Bear", 2, 8, "junk", 24, "🧸"],
+  ["Jar of Paperclips", 1, 3, "junk", 24, "📎"],
+  ["Bent Silverware", 2, 7, "junk", 24, "🍴"],
+  ["Broken Broom", 1, 4, "junk", 24, "🧹"],
+  ["Dented Trash Can", 2, 6, "junk", 23, "🗑️"],
+  ["Scratched CD Pile", 2, 8, "junk", 24, "📀"],
+  ["Cracked Mirror (7 yrs bad luck?)", 2, 9, "junk", 22, "🪞"],
+  ["Empty Fire Extinguisher", 2, 7, "junk", 23, "🧯"],
+  ["Busted Umbrella", 1, 4, "junk", 24, "☂️"],
+  ["Motel Art Print", 2, 10, "junk", 23, "🖼️"],
+  ["Box of Mystery Cables", 2, 12, "junk", 25, "🔌"],
+  ["Muddy Work Boots", 3, 12, "junk", 23, "🥾"],
+  // ---- 15 common ----
+  ["Kitchen Cookware Set", 15, 60, "common", 18, "🍳"],
+  ["Box of Paperback Books", 10, 45, "common", 19, "📚"],
+  ["Skateboard", 15, 65, "common", 17, "🛹"],
+  ["Camping Tent", 20, 80, "common", 16, "⛺"],
+  ["Board Game Collection", 12, 55, "common", 18, "🎲"],
+  ["Folding Chairs (set of 4)", 12, 50, "common", 18, "🪑"],
+  ["Socket Wrench Set", 15, 70, "common", 17, "🧰"],
+  ["Hiking Backpack", 12, 60, "common", 17, "🎒"],
+  ["Kick Scooter", 15, 55, "common", 17, "🛴"],
+  ["Bag of Sports Balls", 10, 40, "common", 18, "⚽"],
+  ["Office Printer", 15, 75, "common", 16, "🖨️"],
+  ["Wired Headphones", 10, 45, "common", 18, "🎧"],
+  ["Ceramic Plant Pots", 10, 50, "common", 17, "🪴"],
+  ["Sewing Machine", 20, 80, "common", 15, "🧵"],
+  ["Vintage Alarm Clock", 12, 60, "common", 16, "⏰"],
+  // ---- 10 uncommon (good tier) ----
+  ["Retro Game Console", 70, 300, "good", 8, "🎮"],
+  ["Film Camera", 60, 250, "good", 9, "📷"],
+  ["Brass Trumpet", 70, 280, "good", 8, "🎺"],
+  ["Mini Fridge", 50, 200, "good", 9, "🧊"],
+  ["Quality Wristwatch", 80, 350, "good", 7, "⌚"],
+  ["Banjo", 60, 260, "good", 8, "🪕"],
+  ["Karaoke Machine", 55, 220, "good", 8, "🎤"],
+  ["Canoe (slightly used)", 80, 320, "good", 7, "🚣"],
+  ["Telescope", 70, 300, "good", 8, "🔭"],
+  ["Marble Chess Set", 60, 270, "good", 8, "♟️"],
+  // ---- 5 rare ----
+  ["Diamond Engagement Ring", 350, 1200, "rare", 3, "💍"],
+  ["Antique Samurai Sword", 300, 1100, "rare", 3, "🗡️"],
+  ["Old Violin (Stradi-something?)", 250, 1200, "rare", 3, "🎻"],
+  ["Vintage Trading Card Binder", 200, 1000, "rare", 3.5, "🃏"],
+  ["Ancient-Looking Vase", 250, 1100, "rare", 3, "🏺"]
+];
+
+const BIDDER_NAMES = ["Big Sal", "Auction Annie", "The Professor",
+  "Silent Ray", "Fast Eddie", "Grandma Lou"];
+
+const SQUATTER_NAMES = ["Mumbles", "Tarp Tony", "Lockpick Lucy",
+  "Cousin Ray-Ray", "The Night Manager", "Boxcar Bella"];
+
+// ---------------- PIXEL ART ----------------
+const PALETTE = {
+  K: "#111111", W: "#f5f0e8", R: "#d9534f", B: "#8b5a2b",
+  D: "#5a3a1a", Y: "#f4a300", G: "#7fd67f", U: "#5a8ac0",
+  S: "#c0c0c0", E: "#6e6e6e", P: "#e58bb0", O: "#c46a2b",
+  T: "#e8d5b7"
+};
+
+const PIXEL_ART = {
+"Moldy Cardboard Boxes": [
+"..........",
+".BBBBBBBB.",
+".BTTBBTTB.",
+".BBBBBBBB.",
+".BGBBBBGB.",
+".BBBBGBBB.",
+".BBBBBBBB.",
+".BGBBBBBB.",
+".BBBBBBGB.",
+".DDDDDDDD."],
+"Broken Exercise Bike": [
+"..........",
+"..EE......",
+"..E.......",
+"..EEEEE...",
+"..E..E....",
+".EEE.EEE..",
+".E.E.E.R..",
+".EEE.ER...",
+"......R...",
+".........."],
+"Bag of Old Clothes": [
+"..........",
+"....EE....",
+"...E..E...",
+"....EE....",
+"...EEEE...",
+"..EEEEEE..",
+"..EETEEE..",
+"..EEEETE..",
+"...EEEE...",
+".........."],
+"Rusty Toolbox": [
+"..........",
+"...OOOO...",
+"..O....O..",
+".OOOOOOOO.",
+".ODOORDOO.",
+".OOOOOOOO.",
+".OODROOOO.",
+".OOOOODOO.",
+".OOOOOOOO.",
+".........."],
+"Used Furniture Set": [
+"..........",
+"..B.......",
+"..B.......",
+"..B.......",
+"..BBBBBB..",
+"..B....B..",
+"..BBBBBB..",
+"..B....B..",
+"..B....B..",
+".........."],
+"Box of DVDs": [
+"..........",
+".SS.SS.SS.",
+".SK.SK.SK.",
+".BBBBBBBB.",
+".BBBBBBBB.",
+".BBBBBBBB.",
+".BBBBBBBB.",
+".BBBBBBBB.",
+".DDDDDDDD.",
+".........."],
+"Kids' Bicycle": [
+"..........",
+"..........",
+"...R..R...",
+"...RRRR...",
+"..K.RR.K..",
+".K.RRRR.K.",
+".K.R..R.K.",
+".K.K..K.K.",
+"..K....K..",
+".........."],
+"Power Tools (working!)": [
+"..........",
+"..........",
+".YYYYYYY..",
+".YYYYYYYSS",
+".YYYYYYY..",
+"....YY....",
+"....YY....",
+"....YYY...",
+"..........",
+".........."],
+"Vintage Vinyl Records": [
+"..........",
+"...KKKK...",
+"..KKKKKK..",
+".KKKKKKKK.",
+".KKKRRKKK.",
+".KKKRRKKK.",
+".KKKKKKKK.",
+"..KKKKKK..",
+"...KKKK...",
+".........."],
+"Flat-Screen TV": [
+"..........",
+".KKKKKKKK.",
+".KUUUUUUK.",
+".KUUUUUUK.",
+".KUUUUUUK.",
+".KUUUUUUK.",
+".KKKKKKKK.",
+"....KK....",
+"..KKKKKK..",
+".........."],
+"Antique Dresser": [
+"..........",
+".DDDDDDDD.",
+".DBBBBBBD.",
+".DBBYYBBD.",
+".DDDDDDDD.",
+".DBBBBBBD.",
+".DBBYYBBD.",
+".DDDDDDDD.",
+".D......D.",
+".........."],
+"Signed Baseball Memorabilia": [
+"..........",
+"...WWWW...",
+"..WWWWWW..",
+".WRWWWWRW.",
+".WWRWWRWW.",
+".WWRWWRWW.",
+".WRWWWWRW.",
+"..WWWWWW..",
+"...WWWW...",
+".........."],
+"Classic Guitar": [
+"..........",
+"......SS..",
+"......SS..",
+".....BB...",
+"....BBBB..",
+"...BBBBBB.",
+"...BBKBBB.",
+"...BBBBBB.",
+"....BBBB..",
+".........."],
+"Coin Collection": [
+"..........",
+"..........",
+"...YYYY...",
+"..YOOOOY..",
+"...YYYY...",
+"..YOOOOY..",
+"...YYYY...",
+"..YOOOOY..",
+"...YYYY...",
+".........."],
+"Designer Handbag Stash": [
+"..........",
+"....PP....",
+"...P..P...",
+"...P..P...",
+".PPPPPPPP.",
+".PPPPPPPP.",
+".PPPYPPPP.",
+".PPPPPPPP.",
+".PPPPPPPP.",
+".........."],
+"Vintage Motorcycle (needs work)": [
+"..........",
+"..........",
+".R.....E..",
+"..R...EE..",
+"..RREEEE..",
+"..EEEEEE..",
+".KK.EE.KK.",
+"KKKK..KKKK",
+"KKKK..KKKK",
+".KK....KK."],
+"Safe Full of Jewelry": [
+"..........",
+".SSSSSSSS.",
+".SEEEEEES.",
+".SEEYYEES.",
+".SEYEEYES.",
+".SEEYYEES.",
+".SEEEEEES.",
+".SSSSSSSS.",
+".S..S..S..",
+".........."],
+"Original Painting (is it real?)": [
+"..........",
+".YYYYYYYY.",
+".YUUUUUUY.",
+".YUUWUUUY.",
+".YUUUUUUY.",
+".YGGGGGGY.",
+".YGGGGGGY.",
+".YKKKKKKY.",
+".YYYYYYYY.",
+".........."],
+"Squatter": [
+"...KKKK...",
+"...KTTK...",
+"...TTTT...",
+"...KTTK...",
+"..EEEEEE..",
+".E.EEEE.E.",
+".T.EEEE.T.",
+"...EEEE...",
+"...E..E...",
+"..KK..KK.."],
+"???": [
+"..........",
+".EEEEEEEE.",
+".EEWWWWEE.",
+".EWWEEWWE.",
+".EEEEWWEE.",
+".EEEWWEEE.",
+".EEEWWEEE.",
+".EEEEEEEE.",
+".EEEWWEEE.",
+".EEEEEEEE."]
+};
+
+const iconCache = {};
+function iconURL(key) {
+  if (iconCache[key]) return iconCache[key];
+  const rows = PIXEL_ART[key] || PIXEL_ART["???"];
+  const c = document.createElement("canvas");
+  c.width = 10; c.height = 10;
+  const ctx = c.getContext("2d");
+  rows.forEach((row, y) => {
+    [...row].forEach((ch, x) => {
+      if (ch === ".") return;
+      ctx.fillStyle = PALETTE[ch] || "#ffffff";
+      ctx.fillRect(x, y, 1, 1);
+    });
+  });
+  iconCache[key] = c.toDataURL();
+  return iconCache[key];
+}
+
+function iconImg(key) {
+  return `<img class="pixel-icon" src="${iconURL(key)}" alt="">`;
+}
+
+function itemIcon(it) {
+  if (it.emoji) return `<span class="emoji-icon">${it.emoji}</span>`;
+  return iconImg(it.name);
+}
+
+// ---------------- HELPERS ----------------
+const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString("en-US") + " USD";
+const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+
+function log(msg, cls = "") {
+  const p = document.createElement("p");
+  p.textContent = msg;
+  if (cls) p.className = cls;
+  $("log").prepend(p);
+}
+
+function updateHUD() {
+  $("cash").textContent = fmt(state.cash);
+  $("day").textContent = state.day;
+  $("rep").textContent = "⭐".repeat(Math.min(5, 1 + Math.floor(state.rep / 20)));
+  $("skill").textContent = state.skill;
+  $("truck").textContent = state.inventory.length + "/" + state.truckCap;
+  $("crew").textContent = state.crew;
+}
+
+function pickItem() {
+  const total = ITEMS.reduce((s, i) => s + i[4], 0);
+  let r = Math.random() * total;
+  for (const it of ITEMS) {
+    r -= it[4];
+    if (r <= 0) {
+      return { name: it[0], value: rand(it[1], it[2]),
+               rarity: it[3], emoji: it[5] };
+    }
+  }
+  const last = ITEMS[ITEMS.length - 1];
+  return { name: last[0], value: rand(last[1], last[2]),
+           rarity: last[3], emoji: last[5] };
+}
+
+function generateLocker() {
+  const count = rand(2, 5);
+  const items = [];
+  for (let i = 0; i < count; i++) items.push(pickItem());
+  return { items, revealed: [] };
+}
+
+// ---------------- SCREENS ----------------
+function render(html) { $("main").innerHTML = html; }
+
+function morningScreen() {
+  state.phase = "morning";
+  updateHUD();
+  render(`
+    <h2>☀️ Day ${state.day} — Morning at the Storage Yard</h2>
+    <p>What's the move, Tito?</p>
+    <p style="margin:12px 0">
+      <button onclick="startAuction()">🔨 Go to Auction</button>
+      <button class="alt" onclick="sellScreen()">💰 Sell Inventory (${state.inventory.length})</button>
+      <button class="alt" onclick="shopScreen()">🛒 Upgrades</button>
+      <button onclick="endDay()">🌙 End Day</button>
+    </p>
+    <p class="info">Goal: retire with ${fmt(state.goal)}. Rent of 50 USD is due
+    every night. Don't go broke!</p>
+  `);
+}
+
+// ---------------- AUCTION ----------------
+let currentLocker = null, currentBid = 0, rivals = [];
+
+function startAuction() {
+  if (state.auctionsToday >= 3) {
+    SFX.bad();
+    log("The auctioneer has gone home. No more auctions today.", "bad");
+    return;
+  }
+  SFX.click();
+  state.auctionsToday++;
+  currentLocker = generateLocker();
+  currentBid = rand(20, 60);
+  rivals = [];
+  const n = rand(1, 3);
+  const pool = [...BIDDER_NAMES].sort(() => Math.random() - 0.5);
+  for (let i = 0; i < n; i++) {
+    rivals.push({
+      name: pool[i],
+      budget: rand(80, 400 + state.day * 30),
+      active: true
+    });
+  }
+  const peeks = Math.min(state.skill, currentLocker.items.length);
+  for (let i = 0; i < peeks; i++) currentLocker.revealed.push(i);
+  auctionScreen();
+}
+
+function lockerHTML() {
+  return currentLocker.items.map((it, i) => {
+    if (currentLocker.revealed.includes(i)) {
+      return `<div class="item-row rarity-${it.rarity}">
+        <span>${itemIcon(it)} ${it.name}</span>
+        <span>${it.rarity}</span></div>`;
+    }
+    return `<div class="item-row rarity-junk">
+      <span>${iconImg("???")} ??? (covered by a tarp)</span>
+      <span>???</span></div>`;
+  }).join("");
+}
+
+function auctionScreen() {
+  state.phase = "auction";
+  updateHUD();
+  const active = rivals.filter(r => r.active);
+  render(`
+    <h2>🔨 Locker Auction #${state.auctionsToday}</h2>
+    <div class="locker-visual">${lockerHTML()}</div>
+    <p class="bidders">Rival bidders: ${
+      active.length ? active.map(r => r.name).join(", ") : "none left!"
+    }</p>
+    <p>Current bid: <strong class="gold">${fmt(currentBid)}</strong></p>
+    <p style="margin-top:10px">
+      <button onclick="playerBid(25)" ${state.cash < currentBid + 25 ? "disabled" : ""}>
+        Bid +25</button>
+      <button onclick="playerBid(100)" ${state.cash < currentBid + 100 ? "disabled" : ""}>
+        Bid +100</button>
+      <button class="alt" onclick="bribePeek()" ${state.cash < 40 ? "disabled" : ""}>
+        🤫 Bribe guard to peek (40 USD)</button>
+      <button class="alt" onclick="walkAway()">🚶 Walk Away</button>
+    </p>
+  `);
+}
+
+function bribePeek() {
+  const hidden = currentLocker.items
+    .map((_, i) => i)
+    .filter(i => !currentLocker.revealed.includes(i));
+  if (!hidden.length) { log("Nothing left to peek at!", "info"); return; }
+  SFX.peek();
+  state.cash -= 40;
+  const idx = hidden[rand(0, hidden.length - 1)];
+  currentLocker.revealed.push(idx);
+  log(`You slipped the guard 40 USD. He lifted the tarp on: ${
+    currentLocker.items[idx].name}`, "info");
+  auctionScreen();
+}
+
+function playerBid(amt) {
+  SFX.bid();
+  currentBid += amt;
+  log(`Tito bids ${fmt(currentBid)}!`, "info");
+  let outbid = false;
+  for (const r of rivals) {
+    if (!r.active) continue;
+    const next = currentBid + rand(10, 50);
+    if (next <= r.budget && Math.random() < 0.65) {
+      currentBid = next;
+      SFX.rival();
+      log(`${r.name} counters with ${fmt(currentBid)}!`, "bad");
+      outbid = true;
+      break;
+    } else if (currentBid > r.budget) {
+      r.active = false;
+      log(`${r.name} shakes their head and drops out.`, "good");
+    }
+  }
+  if (!outbid) {
+    winLocker();
+  } else {
+    auctionScreen();
+  }
+}
+
+function walkAway() {
+  SFX.click();
+  log("You walk away. Somebody else's problem now.", "info");
+  morningScreen();
+}
+
+function winLocker() {
+  SFX.gavel();
+  state.cash -= currentBid;
+  state.rep += 3;
+  log(`🎉 SOLD to Tito for ${fmt(currentBid)}!`, "gold");
+  if (Math.random() < 0.20) {
+    squatterScreen();
+    return;
+  }
+  loadLoot(currentLocker.items);
+}
+
+// ---------------- SQUATTER ENCOUNTER ----------------
+const BRIBE_COST = 75;
+
+function mostValuableIndex(items) {
+  let best = 0;
+  items.forEach((it, i) => { if (it.value > items[best].value) best = i; });
+  return best;
+}
+
+function squatterScreen() {
+  SFX.squatter();
+  const winChance = Math.min(85, 55 + state.rep * 2);
+  updateHUD();
+  render(`
+    <h2>😱 Someone's living in the unit!</h2>
+    <div class="locker-visual" style="text-align:center">
+      <img class="pixel-icon" style="width:60px;height:60px"
+        src="${iconURL("Squatter")}" alt="">
+      <p>A wild-eyed squatter bursts out from behind the boxes,
+      clutching a lamp like a club!</p>
+      <p class="bad">"THIS IS MY HOUSE NOW!"</p>
+    </div>
+    <p>What do you do, Tito?</p>
+    <p style="margin-top:10px">
+      <button class="alt" onclick="runFromSquatter()">🏃 Run for it</button>
+      <button onclick="fightSquatter()">🥊 Fight (${winChance}% chance)</button>
+      <button class="alt" onclick="bribeSquatter()"
+        ${state.cash < BRIBE_COST ? "disabled" : ""}>
+        💵 Offer ${BRIBE_COST} USD to leave</button>
+    </p>
+  `);
+}
+
+function runFromSquatter() {
+  SFX.run();
+  const items = [...currentLocker.items];
+  const idx = mostValuableIndex(items);
+  const stolen = items.splice(idx, 1)[0];
+  log(`You bolted! The squatter grabbed your ${stolen.name} ` +
+    `(worth ~${fmt(stolen.value)}) and vanished into the night.`, "bad");
+  loadLoot(items);
+}
+
+function fightSquatter() {
+  const winChance = Math.min(85, 55 + state.rep * 2);
+  if (Math.random() * 100 < winChance) {
+    SFX.fightWin();
+    state.rep += 5;
+    log("🥊 You stood your ground! The squatter fled empty-handed. " +
+      "Word spreads — +5 rep!", "good");
+    loadLoot(currentLocker.items);
+  } else {
+    SFX.fightLose();
+    const items = [...currentLocker.items];
+    const idx = mostValuableIndex(items);
+    const stolen = items.splice(idx, 1)[0];
+    const cashLoss = Math.min(state.cash, rand(30, 80) + Math.floor(state.cash * 0.1));
+    state.cash -= cashLoss;
+    log(`💥 The squatter got the better of you! They took your ` +
+      `${stolen.name} AND ${fmt(cashLoss)} from your pocket.`, "bad");
+    loadLoot(items);
+  }
+}
+
+function bribeSquatter() {
+  SFX.bribe();
+  state.cash -= BRIBE_COST;
+  const roll = Math.random();
+  if (roll < 0.60) {
+    log(`🤝 The squatter pockets your ${fmt(BRIBE_COST)}, tips an ` +
+      `imaginary hat, and shuffles off. Everyone keeps their teeth.`, "good");
+    loadLoot(currentLocker.items);
+  } else if (roll < 0.85) {
+    SFX.bad();
+    const items = [...currentLocker.items];
+    const idx = mostValuableIndex(items);
+    const stolen = items.splice(idx, 1)[0];
+    log(`🖕 The squatter grabs your ${fmt(BRIBE_COST)}... then snatches ` +
+      `your ${stolen.name} and sprints off laughing. Scammed!`, "bad");
+    loadLoot(items);
+  } else {
+    SFX.recruit();
+    const name = SQUATTER_NAMES[rand(0, SQUATTER_NAMES.length - 1)];
+    state.crew++;
+    state.truckCap += 2;
+    state.rep += 3;
+    log(`🥹 The squatter — "${name}" — is moved to tears. "Nobody's ever ` +
+      `been decent to me. I'm workin' for YOU now, boss." ` +
+      `${name} joins your crew! +2 truck slots, +3 rep.`, "gold");
+    loadLoot(currentLocker.items);
+  }
+}
+
+// ---------------- LOAD LOOT (shared) ----------------
+function loadLoot(items) {
+  const space = state.truckCap - state.inventory.length;
+  const taken = items.slice(0, space);
+  const left = items.length - taken.length;
+  state.inventory.push(...taken);
+  if (left > 0) log(`Truck full! You had to leave ${left} item(s) behind.`, "bad");
+  const summary = taken.length
+    ? taken.map(it =>
+        `<div class="item-row rarity-${it.rarity}">
+          <span>${itemIcon(it)} ${it.name}</span>
+          <span>${it.rarity}</span></div>`).join("")
+    : `<div class="item-row"><span>Nothing left worth taking...</span></div>`;
+  updateHUD();
+  render(`
+    <h2>📦 Loading up the truck...</h2>
+    <div class="locker-visual">${summary}</div>
+    <button onclick="morningScreen()">Continue</button>
+  `);
+}
+
+// ---------------- SELLING ----------------
+function appraise(item) {
+  const noise = 0.6 / state.skill;
+  const lo = Math.floor(item.value * (1 - noise));
+  const hi = Math.ceil(item.value * (1 + noise));
+  return `${Math.max(1, lo)}–${hi} USD`;
+}
+
+function sellScreen() {
+  updateHUD();
+  if (!state.inventory.length) {
+    render(`<h2>💰 Pawn Shop</h2>
+      <p>Your truck is empty, Tito. Go win some lockers!</p>
+      <button onclick="morningScreen()">Back</button>`);
+    return;
+  }
+  const rows = state.inventory.map((it, i) => `
+    <div class="item-row rarity-${it.rarity}">
+      <span>${itemIcon(it)} ${it.name}
+        <em class="info">&nbsp;(est: ${appraise(it)})</em></span>
+      <span><button onclick="sellItem(${i})">Sell</button></span>
+    </div>`).join("");
+  render(`
+    <h2>💰 Pawn Shop</h2>
+    <p>Rep bonus on sales: +${Math.floor(state.rep / 2)}%</p>
+    <div class="locker-visual">${rows}</div>
+    <button onclick="sellAll()">Sell Everything</button>
+    <button class="alt" onclick="morningScreen()">Back</button>
+  `);
+}
+
+function salePrice(item) {
+  const repBonus = 1 + state.rep / 200;
+  const haggle = 0.8 + Math.random() * 0.4;
+  return Math.max(1, Math.floor(item.value * haggle * repBonus));
+}
+
+function sellItem(i) {
+  const it = state.inventory.splice(i, 1)[0];
+  const price = salePrice(it);
+  state.cash += price;
+  state.rep += it.rarity === "legendary" ? 5 : 1;
+  if (price >= 500) SFX.bigSell(); else SFX.sell();
+  log(`Sold ${it.name} for ${fmt(price)}.`, price > it.value ? "good" : "info");
+  if (checkWin()) return;
+  sellScreen();
+}
+
+function sellAll() {
+  let total = 0;
+  while (state.inventory.length) {
+    const it = state.inventory.pop();
+    total += salePrice(it);
+    state.rep += 1;
+  }
+  state.cash += total;
+  if (total >= 500) SFX.bigSell(); else SFX.sell();
+  log(`Cleared out the truck for ${fmt(total)} total.`, "gold");
+  if (checkWin()) return;
+  sellScreen();
+}
+
+// ---------------- SHOP ----------------
+function shopScreen() {
+  updateHUD();
+  const skillCost = state.skill * 300;
+  const truckCost = state.truckCap * 100;
+  render(`
+    <h2>🛒 Tito's Upgrades</h2>
+    <div class="locker-visual">
+      <div class="item-row">
+        <span>🔍 Appraisal Lv ${state.skill + 1} — better estimates,
+        +1 free peek per auction</span>
+        <span><button onclick="buySkill(${skillCost})"
+          ${state.cash < skillCost ? "disabled" : ""}>${fmt(skillCost)}</button></span>
+      </div>
+      <div class="item-row">
+        <span>🚚 Bigger Truck — +3 cargo slots</span>
+        <span><button onclick="buyTruck(${truckCost})"
+          ${state.cash < truckCost ? "disabled" : ""}>${fmt(truckCost)}</button></span>
+      </div>
+    </div>
+    <button class="alt" onclick="morningScreen()">Back</button>
+  `);
+}
+
+function buySkill(cost) {
+  SFX.upgrade();
+  state.cash -= cost; state.skill++;
+  log(`Appraisal skill is now level ${state.skill}!`, "good");
+  shopScreen();
+}
+function buyTruck(cost) {
+  SFX.upgrade();
+  state.cash -= cost; state.truckCap += 3;
+  log(`Truck upgraded! Capacity: ${state.truckCap}.`, "good");
+  shopScreen();
+}
+
+// ---------------- DAY CYCLE ----------------
+function endDay() {
+  SFX.night();
+  state.cash -= 50;
+  log("🌙 Night falls. Paid 50 USD rent on the yard.", "info");
+  if (Math.random() < 0.25) {
+    const events = [
+      () => { const b = rand(20, 100); state.cash += b; SFX.event();
+        log(`A collector tipped you ${fmt(b)} for a lead. Nice!`, "good"); },
+      () => { state.rep += 5; SFX.event();
+        log("Local news featured 'Tito the Locker King'! +5 rep.", "good"); },
+      () => { if (state.inventory.length) {
+          const it = state.inventory.pop(); SFX.bad();
+          log(`Raccoons destroyed your ${it.name}. Ugh.`, "bad");
+        } else { log("Raccoons rummaged your empty truck. Rude.", "info"); } }
+    ];
+    events[rand(0, events.length - 1)]();
+  }
+  state.day++;
+  state.auctionsToday = 0;
+  if (state.cash < 0) {
+    SFX.gameOver();
+    updateHUD();
+    render(`<h2>💀 GAME OVER</h2>
+      <p>Tito went broke on day ${state.day}. The yard is repossessed.</p>
+      <button onclick="restartGame()">Try Again</button>`);
+    return;
+  }
+  morningScreen();
+}
+
+function checkWin() {
+  if (state.cash >= state.goal) {
+    SFX.victory();
+    updateHUD();
+    render(`<h2>🏆 YOU WIN!</h2>
+      <p>With ${fmt(state.cash)} in the bank on day ${state.day},
+      Tito retires as the undisputed Storage Locker King —
+      ${state.crew ? `alongside his loyal crew of ${state.crew}!` : "all by himself!"}</p>
+      <button onclick="restartGame()">Play Again</button>`);
+    return true;
+  }
+  return false;
+}
+
+// ---------------- GAME START ----------------
+function startGame() {
+  initAudio();
+  SFX.start();
+  $("start-screen").style.display = "none";
+  state = freshState();
+  $("log").innerHTML = "";
+  log("Welcome, Tito! You've got 500 USD and a dream.", "gold");
+  updateHUD();
+  morningScreen();
+}
+
+function restartGame() {
+  $("start-screen").style.display = "flex";
+}
+
+$("start-screen").addEventListener("click", startGame);
+</script>
+</body>
+</html>
